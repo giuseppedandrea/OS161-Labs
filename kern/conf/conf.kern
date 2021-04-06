@@ -387,6 +387,9 @@ file      syscall/time_syscalls.c
 file      main/main.c
 file      main/menu.c
 
+defoption hello
+optfile   hello  main/hello.c
+
 ########################################
 #                                      #
 #             Filesystems              #
@@ -441,12 +444,3 @@ file		test/semunit.c
 file		test/kmalloctest.c
 file		test/fstest.c
 optfile net	test/nettest.c
-
-########################################
-#                                      #
-#               My code                #
-#                                      #
-########################################
-
-defoption hello
-optfile   hello  main/hello.c
