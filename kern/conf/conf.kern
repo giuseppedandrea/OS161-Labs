@@ -344,6 +344,8 @@ file      vm/kmalloc.c
 
 optofffile dumbvm   vm/addrspace.c
 
+defoption dumbvmfree
+
 #
 # Network
 # (nothing here yet)
