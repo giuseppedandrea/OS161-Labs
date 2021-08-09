@@ -37,4 +37,4 @@ options hello			# Welcome messagge.
 
 options syscalls		# System Calls.
 
-options dumbvmfree		# Free memory
+options dumbvm_free		# Free memory
