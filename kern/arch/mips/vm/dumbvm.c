@@ -39,6 +39,8 @@
 #include <addrspace.h>
 #include <vm.h>
 
+#include "opt-dumbvm_free.h"
+
 /*
  * Dumb MIPS-only "VM system" that is intended to only be just barely
  * enough to struggle off the ground. You should replace all of this
@@ -64,10 +66,57 @@
  */
 static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 
+#if OPT_DUMBVM_FREE
+/*
+ * Wrap memory freeing operations in a spinlock.
+ */
+static struct spinlock freemem_lock = SPINLOCK_INITIALIZER;
+
+static unsigned char *freeFrames = NULL;
+static unsigned char *allocSize = NULL;
+static size_t nFrames;
+
+static bool allocTableActive = false;
+
+static
+bool
+isAllocTableActive()
+{
+    bool active;
+
+    spinlock_acquire(&freemem_lock);
+    active = allocTableActive;
+    spinlock_release(&freemem_lock);
+
+    return active;
+}
+
+#endif
+
 void
 vm_bootstrap(void)
 {
-	/* Do nothing. */
+#if OPT_DUMBVM_FREE
+    size_t i;
+
+    nFrames = (size_t)(ram_getsize()) / PAGE_SIZE;
+
+    freeFrames = kmalloc(nFrames * sizeof(unsigned char));
+    allocSize = kmalloc(nFrames * sizeof(unsigned char));
+    if ((freeFrames == NULL) || (allocSize == NULL)) {
+        freeFrames = allocSize = NULL;
+        return;
+    }
+
+    for (i = 0; i < nFrames; i++) {
+        freeFrames[i] = 0;
+        allocSize[i] = 0;
+    }
+
+    spinlock_acquire(&freemem_lock);
+    allocTableActive = true;
+    spinlock_release(&freemem_lock);
+#endif
 }
 
 /*
@@ -94,36 +143,107 @@ static
 paddr_t
 getppages(unsigned long npages)
 {
-	paddr_t addr;
+#if OPT_DUMBVM_FREE
+    size_t i, firstFrame;
+    paddr_t paddr = 0;
 
-	spinlock_acquire(&stealmem_lock);
+    if (isAllocTableActive()) {
+        spinlock_acquire(&freemem_lock);
+        for (i = 0, firstFrame = -1; i < nFrames; i++) {
+            if (freeFrames[i]) {
+                if ((i == 0) || !freeFrames[i - 1]) {
+                    firstFrame = i;
+                }
+                if ((i - firstFrame + 1) >= npages) {
+                    paddr = (paddr_t)(firstFrame) * PAGE_SIZE;
+                    break;
+                }
+            }
+        }
+        spinlock_release(&freemem_lock);
+    }
 
-	addr = ram_stealmem(npages);
+    if (paddr == 0) {
+        spinlock_acquire(&stealmem_lock);
+        paddr = ram_stealmem(npages);
+        spinlock_release(&stealmem_lock);
+    }
 
-	spinlock_release(&stealmem_lock);
-	return addr;
+    if ((paddr != 0) && isAllocTableActive()) {
+        firstFrame = (size_t)(paddr) / PAGE_SIZE;
+        KASSERT(firstFrame <= nFrames);
+
+        spinlock_acquire(&freemem_lock);
+        for (i = firstFrame; i < (firstFrame + npages); i++) {
+            freeFrames[i] = 0;
+        }
+        allocSize[firstFrame] = npages;
+        spinlock_release(&freemem_lock);
+    }
+
+    return paddr;
+#else
+    paddr_t paddr;
+
+    spinlock_acquire(&stealmem_lock);
+    paddr = ram_stealmem(npages);
+    spinlock_release(&stealmem_lock);
+
+    return paddr;
+#endif
 }
+
+#if OPT_DUMBVM_FREE
+static
+void
+freeppages(paddr_t paddr, unsigned long npages) {
+    size_t i, firstFrame;
+
+    if (isAllocTableActive()) {
+        firstFrame = (size_t)(paddr) / PAGE_SIZE;
+        KASSERT(firstFrame <= nFrames);
+
+        spinlock_acquire(&freemem_lock);
+        for (i = firstFrame; i < (firstFrame + npages); i++) {
+            freeFrames[i] = 1;
+        }
+        allocSize[firstFrame] = 0;
+        spinlock_release(&freemem_lock);
+    }
+}
+#endif
 
 /* Allocate/free some kernel-space virtual pages */
 vaddr_t
 alloc_kpages(unsigned npages)
 {
-	paddr_t pa;
+    paddr_t paddr;
 
-	dumbvm_can_sleep();
-	pa = getppages(npages);
-	if (pa==0) {
-		return 0;
-	}
-	return PADDR_TO_KVADDR(pa);
+    dumbvm_can_sleep();
+
+    paddr = getppages(npages);
+    if (paddr == 0) {
+        return 0;
+    }
+
+    return PADDR_TO_KVADDR(paddr);
 }
 
 void
 free_kpages(vaddr_t addr)
 {
-	/* nothing - leak the memory. */
+#if OPT_DUMBVM_FREE
+    paddr_t paddr = addr - MIPS_KSEG0;
 
-	(void)addr;
+    if (isAllocTableActive()) {
+        size_t firstFrame = (size_t)(paddr) / PAGE_SIZE;
+        KASSERT(firstFrame <= nFrames);
+
+        freeppages(paddr, allocSize[firstFrame]);
+    }
+#else
+    (void)addr;
+#endif
 }
 
 void
@@ -256,8 +376,26 @@ as_create(void)
 void
 as_destroy(struct addrspace *as)
 {
-	dumbvm_can_sleep();
-	kfree(as);
+    KASSERT(as->as_pbase1 != 0);
+    KASSERT(as->as_npages1 != 0);
+    KASSERT(as->as_pbase2 != 0);
+    KASSERT(as->as_npages2 != 0);
+    KASSERT(as->as_stackpbase != 0);
+
+    dumbvm_can_sleep();
+
+#if OPT_DUMBVM_FREE
+    KASSERT(as->as_npages1 == allocSize[(size_t)as->as_pbase1 / PAGE_SIZE]);
+    freeppages(as->as_pbase1, as->as_npages1);
+
+    KASSERT(as->as_npages2 == allocSize[(size_t)as->as_pbase2 / PAGE_SIZE]);
+    freeppages(as->as_pbase2, as->as_npages2);
+
+    KASSERT(DUMBVM_STACKPAGES == allocSize[(size_t)as->as_stackpbase / PAGE_SIZE]);
+    freeppages(as->as_stackpbase, DUMBVM_STACKPAGES);
+#endif
+
+    kfree(as);
 }
 
 void
