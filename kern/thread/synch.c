@@ -154,9 +154,27 @@ lock_create(const char *name)
                 return NULL;
         }
 
-	HANGMAN_LOCKABLEINIT(&lock->lk_hangman, lock->lk_name);
+        HANGMAN_LOCKABLEINIT(&lock->lk_hangman, lock->lk_name);
 
-        // add stuff here as needed
+#if OPT_LOCK
+#if (LOCK_IMPLEMENTATION == 0)  // Implemented by Binary Semaphore
+        lock->lk_sem = sem_create(lock->lk_name, 1);
+        if (lock->lk_sem == NULL) {
+                kfree(lock->lk_name);
+                kfree(lock);
+                return NULL;
+        }
+#else                           // Implemented by Wait Channel and Spinlock
+        lock->lk_wchan = wchan_create(lock->lk_name);
+        if (lock->lk_wchan == NULL) {
+                kfree(lock->lk_name);
+                kfree(lock);
+                return NULL;
+        }
+#endif
+        lock->lk_holder = NULL;
+        spinlock_init(&lock->lk_lock);
+#endif
 
         return lock;
 }
@@ -166,7 +184,14 @@ lock_destroy(struct lock *lock)
 {
         KASSERT(lock != NULL);
 
-        // add stuff here as needed
+#if OPT_LOCK
+        spinlock_cleanup(&lock->lk_lock);
+#if (LOCK_IMPLEMENTATION == 0)  // Implemented by Binary Semaphore
+        sem_destroy(lock->lk_sem);
+#else                           // Implemented by Wait Channel and Spinlock
+        wchan_destroy(lock->lk_wchan);
+#endif
+#endif
 
         kfree(lock->lk_name);
         kfree(lock);
@@ -175,36 +200,77 @@ lock_destroy(struct lock *lock)
 void
 lock_acquire(struct lock *lock)
 {
-	/* Call this (atomically) before waiting for a lock */
-	//HANGMAN_WAIT(&curthread->t_hangman, &lock->lk_hangman);
+        KASSERT(lock != NULL);
 
-        // Write this
+#if OPT_LOCK
+        HANGMAN_WAIT(&curthread->t_hangman, &lock->lk_hangman);
 
-        (void)lock;  // suppress warning until code gets written
+        KASSERT(!lock_do_i_hold(lock));
 
-	/* Call this (atomically) once the lock is acquired */
-	//HANGMAN_ACQUIRE(&curthread->t_hangman, &lock->lk_hangman);
+#if (LOCK_IMPLEMENTATION == 0)  // Implemented by Binary Semaphore
+        P(lock->lk_sem);
+        spinlock_acquire(&lock->lk_lock);
+        KASSERT(lock->lk_holder == NULL);
+        lock->lk_holder = curthread;
+        spinlock_release(&lock->lk_lock);
+#else                           // Implemented by Wait Channel and Spinlock
+        spinlock_acquire(&lock->lk_lock);
+        while (lock->lk_holder != NULL) {
+                wchan_sleep(lock->lk_wchan, &lock->lk_lock);
+        }
+        KASSERT(lock->lk_holder == NULL);
+        lock->lk_holder = curthread;
+        spinlock_release(&lock->lk_lock);
+#endif
+
+        HANGMAN_ACQUIRE(&curthread->t_hangman, &lock->lk_hangman);
+#else
+        (void)lock;
+#endif
 }
 
 void
 lock_release(struct lock *lock)
 {
-	/* Call this (atomically) when the lock is released */
-	//HANGMAN_RELEASE(&curthread->t_hangman, &lock->lk_hangman);
+        KASSERT(lock != NULL);
 
-        // Write this
+#if OPT_LOCK
+        HANGMAN_RELEASE(&curthread->t_hangman, &lock->lk_hangman);
 
-        (void)lock;  // suppress warning until code gets written
+        KASSERT(lock_do_i_hold(lock));
+
+#if (LOCK_IMPLEMENTATION == 0)  // Implemented by Binary Semaphore
+        spinlock_acquire(&lock->lk_lock);
+        lock->lk_holder = NULL;
+        V(lock->lk_sem);
+        spinlock_release(&lock->lk_lock);
+#else                           // Implemented by Wait Channel and Spinlock
+        spinlock_acquire(&lock->lk_lock);
+        lock->lk_holder = NULL;
+        wchan_wakeone(lock->lk_wchan, &lock->lk_lock);
+        spinlock_release(&lock->lk_lock);
+#endif
+#else
+        (void)lock;
+#endif
 }
 
 bool
 lock_do_i_hold(struct lock *lock)
 {
-        // Write this
+#if OPT_LOCK
+        bool isHolding;
 
-        (void)lock;  // suppress warning until code gets written
+        spinlock_acquire(&lock->lk_lock);
+        isHolding = lock->lk_holder == curthread;
+        spinlock_release(&lock->lk_lock);
 
-        return true; // dummy until code gets written
+        return isHolding;
+#else
+        (void)lock;
+
+        return true;
+#endif
 }
 
 ////////////////////////////////////////////////////////////
