@@ -329,6 +329,9 @@ file      thread/threadlist.c
 defoption hangman
 optfile   hangman thread/hangman.c
 
+defoption lock              # Lock
+defoption cv                # Condition Variable
+
 #
 # Process system
 #
