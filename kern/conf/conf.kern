@@ -338,6 +338,8 @@ defoption cv                # Condition Variable
 
 file      proc/proc.c
 
+defoption waitpid           # WaitPID
+
 #
 # Virtual memory system
 # (you will probably want to add stuff here while doing the VM assignment)
