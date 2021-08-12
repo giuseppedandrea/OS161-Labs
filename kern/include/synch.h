@@ -38,11 +38,12 @@
 #include <spinlock.h>
 
 #include "opt-lock.h"
+#include "opt-cv.h"
 
 // Lock implemented by:
 // - 0 -> Binary Semaphore
 // - 1 -> Wait Channel and Spinlock
-#define LOCK_IMPLEMENTATION 0
+#define LOCK_IMPLEMENTATION 1
 
 /*
  * Dijkstra-style semaphore.
@@ -129,8 +130,11 @@ bool lock_do_i_hold(struct lock *);
 
 struct cv {
         char *cv_name;
-        // add what you need here
-        // (don't forget to mark things volatile as needed)
+
+#if OPT_CV
+        struct wchan *cv_wchan;
+        struct spinlock cv_lock;
+#endif
 };
 
 struct cv *cv_create(const char *name);
