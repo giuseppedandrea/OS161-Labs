@@ -391,6 +391,8 @@ defoption   syscalls
 optfile     syscalls    syscall/file_syscalls.c
 optfile     syscalls    syscall/proc_syscalls.c
 
+defoption   fork            # Fork
+
 #
 # Startup and initialization
 #
