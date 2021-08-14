@@ -193,10 +193,10 @@ getppages(unsigned long npages)
 #endif
 }
 
-#if OPT_DUMBVM_FREE
 static
 void
 freeppages(paddr_t paddr, unsigned long npages) {
+#if OPT_DUMBVM_FREE
     size_t i, firstFrame;
 
     if (isAllocTableActive()) {
@@ -210,8 +210,11 @@ freeppages(paddr_t paddr, unsigned long npages) {
         allocSize[firstFrame] = 0;
         spinlock_release(&freemem_lock);
     }
-}
+#else
+    (void)paddr;
+    (void)npages;
 #endif
+}
 
 /* Allocate/free some kernel-space virtual pages */
 vaddr_t
@@ -376,24 +379,13 @@ as_create(void)
 void
 as_destroy(struct addrspace *as)
 {
-    KASSERT(as->as_pbase1 != 0);
-    KASSERT(as->as_npages1 != 0);
-    KASSERT(as->as_pbase2 != 0);
-    KASSERT(as->as_npages2 != 0);
-    KASSERT(as->as_stackpbase != 0);
-
     dumbvm_can_sleep();
 
-#if OPT_DUMBVM_FREE
-    KASSERT(as->as_npages1 == allocSize[(size_t)as->as_pbase1 / PAGE_SIZE]);
     freeppages(as->as_pbase1, as->as_npages1);
 
-    KASSERT(as->as_npages2 == allocSize[(size_t)as->as_pbase2 / PAGE_SIZE]);
     freeppages(as->as_pbase2, as->as_npages2);
 
-    KASSERT(DUMBVM_STACKPAGES == allocSize[(size_t)as->as_stackpbase / PAGE_SIZE]);
     freeppages(as->as_stackpbase, DUMBVM_STACKPAGES);
-#endif
 
     kfree(as);
 }
