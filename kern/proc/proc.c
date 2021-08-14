@@ -48,11 +48,113 @@
 #include <current.h>
 #include <addrspace.h>
 #include <vnode.h>
+#include <synch.h>
+
+#if OPT_WAITPID
+#define MAX_PROC 100
+
+struct processtable {
+    struct proc *pt_list[MAX_PROC + 1];     // pt_list[0] is always NULL
+    pid_t pt_lastpid;
+    struct spinlock pt_lock;
+};
+
+struct processtable processtable = {.pt_list = {NULL}, .pt_lastpid = 0, .pt_lock = SPINLOCK_INITIALIZER};
+#endif
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
  */
 struct proc *kproc;
+
+static
+void
+processtable_add(struct proc *proc)
+{
+#if OPT_WAITPID
+    pid_t pid;
+
+    KASSERT(proc != NULL);
+
+    spinlock_acquire(&processtable.pt_lock);
+
+    proc->p_pid = 0;
+    pid = processtable.pt_lastpid + 1;
+    if (pid > MAX_PROC) {
+        pid = 1;
+    }
+    while (pid != processtable.pt_lastpid) {
+        if (processtable.pt_list[pid] == NULL) {
+            processtable.pt_list[pid] = proc;
+            processtable.pt_lastpid = pid;
+            proc->p_pid = pid;
+            break;
+        }
+        pid++;
+        if (pid > MAX_PROC) {
+            pid = 1;
+        }
+    }
+
+    spinlock_release(&processtable.pt_lock);
+
+    if (proc->p_pid == 0) {
+        panic("Too many processes!\n");
+    }
+
+    proc->p_returncode = 0;
+    proc->p_sem = sem_create(proc->p_name, 0);
+#else
+    (void)proc;
+#endif
+}
+
+static
+void
+processtable_remove(struct proc *proc)
+{
+#if OPT_WAITPID
+    pid_t pid;
+
+    KASSERT(proc != NULL);
+
+    spinlock_acquire(&processtable.pt_lock);
+
+    pid = proc->p_pid;
+    KASSERT((pid > 0) && (pid <= MAX_PROC));
+    KASSERT(pid == processtable.pt_list[pid]->p_pid);
+    processtable.pt_list[pid] = NULL;
+
+    spinlock_release(&processtable.pt_lock);
+
+    sem_destroy(proc->p_sem);
+#else
+    (void)proc;
+#endif
+}
+
+static
+struct proc *
+processtable_search(pid_t pid)
+{
+#if OPT_WAITPID
+    struct proc *proc;
+
+    KASSERT((pid > 0) && (pid <= MAX_PROC));
+
+    spinlock_acquire(&processtable.pt_lock);
+
+    proc = processtable.pt_list[pid];
+    KASSERT(proc->p_pid == pid);
+
+    spinlock_release(&processtable.pt_lock);
+
+    return proc;
+#else
+    (void)pid;
+    return NULL;
+#endif
+}
 
 /*
  * Create a proc structure.
@@ -81,6 +183,8 @@ proc_create(const char *name)
 
 	/* VFS fields */
 	proc->p_cwd = NULL;
+
+    processtable_add(proc);
 
 	return proc;
 }
@@ -167,6 +271,8 @@ proc_destroy(struct proc *proc)
 
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
+
+    processtable_remove(proc);
 
 	kfree(proc->p_name);
 	kfree(proc);
@@ -317,4 +423,35 @@ proc_setas(struct addrspace *newas)
 	proc->p_addrspace = newas;
 	spinlock_release(&proc->p_lock);
 	return oldas;
+}
+
+int
+proc_wait(struct proc *proc)
+{
+    KASSERT(proc != NULL);
+
+#if OPT_WAITPID
+    P(proc->p_sem);
+
+    int returncode = proc->p_returncode;
+
+    proc_destroy(proc);
+
+    return returncode;
+#else
+    (void)proc;
+    return -1;
+#endif
+}
+
+struct proc *
+proc_by_pid(pid_t pid)
+{
+#if OPT_WAITPID
+    return processtable_search(pid);
+#else
+    (void)processtable_search(pid);
+    (void)pid;
+    return NULL;
+#endif
 }

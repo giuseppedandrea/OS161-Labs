@@ -112,17 +112,27 @@ syscall(struct trapframe *tf)
 #if OPT_SYSCALLS
         case SYS_write:
             retval = sys_write((int)tf->tf_a0, (const_userptr_t)tf->tf_a1, (size_t)tf->tf_a2);
-            err = (retval < 0) ? EINVAL : 0;
+            err = (retval < 0) ? ENOSYS : 0;
             break;
 
         case SYS_read:
             retval = sys_read((int)tf->tf_a0, (userptr_t)tf->tf_a1, (size_t)tf->tf_a2);
-            err = (retval < 0) ? EINVAL : 0;
+            err = (retval < 0) ? ENOSYS : 0;
             break;
 
         case SYS__exit:
             sys__exit((int)tf->tf_a0);
             err = 0;
+            break;
+
+        case SYS_waitpid:
+            retval = sys_waitpid((pid_t)tf->tf_a0, (userptr_t)tf->tf_a1, (int)tf->tf_a2);
+            err = (retval < 0) ? ENOSYS : 0;
+            break;
+
+        case SYS_getpid:
+            retval = sys_getpid();
+            err = (retval < 0) ? ENOSYS : 0;
             break;
 #endif
 

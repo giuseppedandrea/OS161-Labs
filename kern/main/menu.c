@@ -137,6 +137,13 @@ common_prog(int nargs, char **args)
 	 * The new process will be destroyed when the program exits...
 	 * once you write the code for handling that.
 	 */
+#if OPT_WAITPID
+    int returncode;
+
+    returncode = proc_wait(proc);
+
+    kprintf("Exit code %d\n", returncode);
+#endif
 
 	return 0;
 }
