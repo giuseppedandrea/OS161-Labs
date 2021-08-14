@@ -34,6 +34,7 @@
 #include <mips/trapframe.h>
 #include <thread.h>
 #include <current.h>
+#include <addrspace.h>
 #include <syscall.h>
 
 
@@ -134,6 +135,11 @@ syscall(struct trapframe *tf)
             retval = sys_getpid();
             err = (retval < 0) ? ENOSYS : 0;
             break;
+
+        case SYS_fork:
+            retval = sys_fork(tf);
+            err = (retval < 0) ? -retval : 0;
+            break;
 #endif
 
 	    default:
@@ -173,14 +179,32 @@ syscall(struct trapframe *tf)
 
 /*
  * Enter user mode for a newly forked process.
- *
- * This function is provided as a reminder. You need to write
- * both it and the code that calls it.
- *
- * Thus, you can trash it and do things another way if you prefer.
  */
 void
 enter_forked_process(struct trapframe *tf)
 {
-	(void)tf;
+#if OPT_FORK
+    struct trapframe forkedtf = *tf;  // Copy trap frame onto kernel stack
+
+    forkedtf.tf_v0 = 0;              // Return value
+    forkedtf.tf_a3 = 0;              // Signal no error
+
+    /*
+    * Now, advance the program counter, to avoid restarting
+    * the syscall over and over again.
+    */
+    forkedtf.tf_epc += 4;
+
+    /* Make sure the syscall code didn't forget to lower spl */
+    KASSERT(curthread->t_curspl == 0);
+    /* ...or leak any spinlocks */
+    KASSERT(curthread->t_iplhigh_count == 0);
+
+    /* Activate our address space in the MMU. */
+    as_activate();
+
+    mips_usermode(&forkedtf);
+#else
+    (void)tf;
+#endif
 }

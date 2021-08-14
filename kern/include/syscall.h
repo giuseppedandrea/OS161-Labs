@@ -34,6 +34,7 @@
 #include <cdefs.h> /* for __DEAD */
 
 #include "opt-syscalls.h"
+#include "opt-fork.h"
 
 struct trapframe; /* from <machine/trapframe.h> */
 
@@ -47,7 +48,7 @@ void syscall(struct trapframe *tf);
  * Support functions.
  */
 
-/* Helper for fork(). You write this. */
+/* Enter user mode for a newly forked process. */
 void enter_forked_process(struct trapframe *tf);
 
 /* Enter user mode. Does not return. */
@@ -67,6 +68,7 @@ ssize_t sys_read(int fd, userptr_t buf_ptr, size_t size);
 void sys__exit(int code);
 pid_t sys_waitpid(pid_t pid, userptr_t returncode, int flags);
 pid_t sys_getpid(void);
+pid_t sys_fork(struct trapframe *tf);
 #endif
 
 #endif /* _SYSCALL_H_ */
