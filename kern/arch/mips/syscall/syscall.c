@@ -188,6 +188,8 @@ enter_forked_process(struct trapframe *tf)
 #if OPT_FORK
     struct trapframe forkedtf = *tf;    // Copy trap frame onto kernel stack
 
+    kfree(tf);
+
     forkedtf.tf_v0 = 0;     // Return value
     forkedtf.tf_a3 = 0;     // Signal no error
 
