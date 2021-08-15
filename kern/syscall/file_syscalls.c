@@ -112,29 +112,6 @@ sys_close(int fd, int *errp)
 }
 
 ssize_t
-sys_write(int fd, const_userptr_t buf_ptr, size_t size, int *errp)
-{
-    size_t i;
-    const char *buf = (const char *)buf_ptr;
-
-    if ((fd != STDOUT_FILENO) && (fd != STDERR_FILENO)) {
-        *errp = ENOSYS;
-        return -1;
-    }
-
-    if (buf == NULL) {
-        *errp = EFAULT;
-        return -1;
-    }
-
-    for (i = 0; i < size; i++) {
-        putch(buf[i]);
-    }
-
-    return (ssize_t)size;
-}
-
-ssize_t
 sys_read(int fd, userptr_t buf_ptr, size_t size, int *errp)
 {
     size_t i;
@@ -155,6 +132,29 @@ sys_read(int fd, userptr_t buf_ptr, size_t size, int *errp)
         if (buf[i] < 0) {
             return i;
         }
+    }
+
+    return (ssize_t)size;
+}
+
+ssize_t
+sys_write(int fd, const_userptr_t buf_ptr, size_t size, int *errp)
+{
+    size_t i;
+    const char *buf = (const char *)buf_ptr;
+
+    if ((fd != STDOUT_FILENO) && (fd != STDERR_FILENO)) {
+        *errp = ENOSYS;
+        return -1;
+    }
+
+    if (buf == NULL) {
+        *errp = EFAULT;
+        return -1;
+    }
+
+    for (i = 0; i < size; i++) {
+        putch(buf[i]);
     }
 
     return (ssize_t)size;
