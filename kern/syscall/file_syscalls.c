@@ -1,42 +1,47 @@
 #include <types.h>
+#include <kern/errno.h>
 #include <kern/unistd.h>
 #include <lib.h>
 #include <syscall.h>
 
-ssize_t sys_write(int fd, const_userptr_t buf_ptr, size_t size) {
+ssize_t
+sys_write(int fd, const_userptr_t buf_ptr, size_t size)
+{
     size_t i;
-    const char *p = (const char *)buf_ptr;
+    const char *buf = (const char *)buf_ptr;
 
     if ((fd != STDOUT_FILENO) && (fd != STDERR_FILENO)) {
-        return -1;
+        return -ENOSYS;
     }
 
-    if (p == NULL) {
-        return -1;
+    if (buf == NULL) {
+        return -EFAULT;
     }
 
     for (i = 0; i < size; i++) {
-        putch(p[i]);
+        putch(buf[i]);
     }
 
     return (ssize_t)size;
 }
 
-ssize_t sys_read(int fd, userptr_t buf_ptr, size_t size) {
+ssize_t
+sys_read(int fd, userptr_t buf_ptr, size_t size)
+{
     size_t i;
-    char *p = (char *)buf_ptr;
+    char *buf = (char *)buf_ptr;
 
     if (fd != STDIN_FILENO) {
-        return -1;
+        return -ENOSYS;
     }
 
-    if (p == NULL) {
-        return -1;
+    if (buf == NULL) {
+        return -EFAULT;
     }
 
     for (i = 0; i < size; i++) {
-        p[i] = getch();
-        if (p[i] < 0) {
+        buf[i] = getch();
+        if (buf[i] < 0) {
             return i;
         }
     }

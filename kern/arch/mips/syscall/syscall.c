@@ -113,12 +113,12 @@ syscall(struct trapframe *tf)
 #if OPT_SYSCALLS
         case SYS_write:
             retval = sys_write((int)tf->tf_a0, (const_userptr_t)tf->tf_a1, (size_t)tf->tf_a2);
-            err = (retval < 0) ? ENOSYS : 0;
+            err = (retval < 0) ? -retval : 0;
             break;
 
         case SYS_read:
             retval = sys_read((int)tf->tf_a0, (userptr_t)tf->tf_a1, (size_t)tf->tf_a2);
-            err = (retval < 0) ? ENOSYS : 0;
+            err = (retval < 0) ? -retval : 0;
             break;
 
         case SYS__exit:
@@ -128,12 +128,12 @@ syscall(struct trapframe *tf)
 
         case SYS_waitpid:
             retval = sys_waitpid((pid_t)tf->tf_a0, (userptr_t)tf->tf_a1, (int)tf->tf_a2);
-            err = (retval < 0) ? ENOSYS : 0;
+            err = (retval < 0) ? -retval : 0;
             break;
 
         case SYS_getpid:
             retval = sys_getpid();
-            err = (retval < 0) ? ENOSYS : 0;
+            err = (retval < 0) ? -retval : 0;
             break;
 
         case SYS_fork:
@@ -184,14 +184,14 @@ void
 enter_forked_process(struct trapframe *tf)
 {
 #if OPT_FORK
-    struct trapframe forkedtf = *tf;  // Copy trap frame onto kernel stack
+    struct trapframe forkedtf = *tf;    // Copy trap frame onto kernel stack
 
-    forkedtf.tf_v0 = 0;              // Return value
-    forkedtf.tf_a3 = 0;              // Signal no error
+    forkedtf.tf_v0 = 0;     // Return value
+    forkedtf.tf_a3 = 0;     // Signal no error
 
     /*
     * Now, advance the program counter, to avoid restarting
-    * the syscall over and over again.
+    * the fork system call over and over again.
     */
     forkedtf.tf_epc += 4;
 
@@ -203,6 +203,7 @@ enter_forked_process(struct trapframe *tf)
     /* Activate our address space in the MMU. */
     as_activate();
 
+    /* Enter user mode */
     mips_usermode(&forkedtf);
 #else
     (void)tf;
