@@ -49,6 +49,7 @@
 #include <addrspace.h>
 #include <vnode.h>
 #include <synch.h>
+#include <syscall.h>
 
 #if OPT_WAITPID
 #define MAX_PROC 100
@@ -185,6 +186,10 @@ proc_create(const char *name)
 	proc->p_cwd = NULL;
 
     processtable_add(proc);
+
+#if OPT_FILE
+    bzero(proc->p_filetable, OPEN_MAX * sizeof(struct openfile *));
+#endif
 
 	return proc;
 }
@@ -453,5 +458,28 @@ proc_by_pid(pid_t pid)
     (void)processtable_search(pid);
     (void)pid;
     return NULL;
+#endif
+}
+
+void
+proc_filetable_copy(struct proc *srcp, struct proc *dstp)
+{
+    KASSERT(srcp != NULL);
+    KASSERT(dstp != NULL);
+
+#if OPT_FILE
+    struct openfile *of;
+    int fd;
+
+    for (fd = 0; fd < OPEN_MAX; fd++) {
+        of = srcp->p_filetable[fd];
+        dstp->p_filetable[fd] = of;
+        if (of != NULL) {
+            of->count++;
+        }
+    }
+#else
+    (void)srcp;
+    (void)dstp;
 #endif
 }

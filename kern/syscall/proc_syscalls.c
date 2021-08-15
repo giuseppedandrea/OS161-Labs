@@ -109,6 +109,8 @@ sys_fork(struct trapframe *tf)
         return -ENOMEM;
     }
 
+    proc_filetable_copy(curproc, childproc);
+
     // TODO: linking parent/child, so that child terminated on parent exit
 
     childtf = kmalloc(sizeof(struct trapframe));

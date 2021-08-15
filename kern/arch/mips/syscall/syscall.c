@@ -111,6 +111,16 @@ syscall(struct trapframe *tf)
 		break;
 
 #if OPT_SYSCALLS
+        case SYS_open:
+            retval = sys_open((const_userptr_t)tf->tf_a0, (int)tf->tf_a1, (mode_t)tf->tf_a2);
+            err = (retval < 0) ? -retval : 0;
+            break;
+
+        case SYS_close:
+            retval = sys_close((int)tf->tf_a0);
+            err = (retval < 0) ? -retval : 0;
+            break;
+
         case SYS_write:
             retval = sys_write((int)tf->tf_a0, (const_userptr_t)tf->tf_a1, (size_t)tf->tf_a2);
             err = (retval < 0) ? -retval : 0;

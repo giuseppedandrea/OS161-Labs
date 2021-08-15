@@ -37,12 +37,15 @@
  */
 
 #include <spinlock.h>
+#include <limits.h>
 
 #include "opt-waitpid.h"
+#include "opt-file.h"
 
 struct addrspace;
 struct thread;
 struct vnode;
+struct openfile;
 
 /*
  * Process structure.
@@ -77,6 +80,10 @@ struct proc {
     int p_returncode;           /* Return Code */
     struct semaphore *p_sem;    /* Semaphore */
 #endif
+
+#if OPT_FILE
+    struct openfile *p_filetable[OPEN_MAX];
+#endif
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */
@@ -108,5 +115,8 @@ int proc_wait(struct proc *proc);
 
 /* Find a process by PID */
 struct proc *proc_by_pid(pid_t pid);
+
+/* Copy filetable from a process to another process */
+void proc_filetable_copy(struct proc *srcp, struct proc *dstp);
 
 #endif /* _PROC_H_ */
