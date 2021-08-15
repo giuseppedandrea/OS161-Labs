@@ -9,7 +9,7 @@
 #include <synch.h>
 
 void
-sys__exit(int code)
+sys__exit(int code, int *errp)
 {
 #if OPT_WAITPID
     struct proc *proc = curproc;
@@ -22,18 +22,22 @@ sys__exit(int code)
 
     V(proc->p_sem);
 
+    *errp = 0;
+
     thread_exit();
 #else
     (void)code;         // Return Code not handled
 
     as_destroy(curproc->p_addrspace);
 
+    *errp = 0;
+
     thread_exit();
 #endif
 }
 
 pid_t
-sys_waitpid(pid_t pid, userptr_t returncode, int flags)
+sys_waitpid(pid_t pid, userptr_t returncode, int flags, int *errp)
 {
 #if OPT_WAITPID
     struct proc *proc;
@@ -41,7 +45,8 @@ sys_waitpid(pid_t pid, userptr_t returncode, int flags)
 
     proc = proc_by_pid(pid);
     if (proc == NULL) {
-        return -ECHILD;
+        *errp = ECHILD;
+        return -1;
     }
 
     result = proc_wait(proc);
@@ -56,19 +61,23 @@ sys_waitpid(pid_t pid, userptr_t returncode, int flags)
     (void)pid;
     (void)returncode;
     (void)flags;
-    return -ENOSYS;
+    *errp = ENOSYS;
+    return -1;
 #endif
 }
 
 pid_t
-sys_getpid(void)
+sys_getpid(int *errp)
 {
 #if OPT_WAITPID
     KASSERT(curproc != NULL);
 
+    *errp = 0;
+
     return curproc->p_pid;
 #else
-    return -ENOSYS;
+    *errp = ENOSYS;
+    return -1;
 #endif
 }
 
@@ -88,7 +97,7 @@ forked_process_thread(void *tf, unsigned long junk)
 #endif
 
 pid_t
-sys_fork(struct trapframe *tf)
+sys_fork(struct trapframe *tf, int *errp)
 {
 #if OPT_FORK
     struct proc *childproc;
@@ -99,14 +108,16 @@ sys_fork(struct trapframe *tf)
 
     childproc = proc_create_runprogram(curproc->p_name);
     if (childproc == NULL) {
-        return -ENOMEM;
+        *errp = ENOMEM;
+        return -1;
     }
 
     result = as_copy(curproc->p_addrspace, &(childproc->p_addrspace));
     if (result != 0) {
         kprintf("as_copy failed: %s\n", strerror(result));
         proc_destroy(childproc);
-        return -ENOMEM;
+        *errp = result;
+        return -1;
     }
 
     proc_filetable_copy(curproc, childproc);
@@ -116,7 +127,8 @@ sys_fork(struct trapframe *tf)
     childtf = kmalloc(sizeof(struct trapframe));
     if (childtf == NULL) {
         proc_destroy(childproc);
-        return -ENOMEM;
+        *errp = ENOMEM;
+        return -1;
     }
     memcpy(childtf, tf, sizeof(struct trapframe));
 
@@ -129,12 +141,14 @@ sys_fork(struct trapframe *tf)
         kprintf("thread_fork failed: %s\n", strerror(result));
         proc_destroy(childproc);
         kfree(childtf);
-        return -ENOMEM;
+        *errp = result;
+        return -1;
     }
 
     return childproc->p_pid;
 #else
     (void)tf;
-    return -ENOSYS;
+    *errp = ENOSYS;
+    return -1;
 #endif
 }

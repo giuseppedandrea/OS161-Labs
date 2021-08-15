@@ -72,14 +72,14 @@ __DEAD void enter_new_process(int argc, userptr_t argv, userptr_t env,
 int sys_reboot(int code);
 int sys___time(userptr_t user_seconds, userptr_t user_nanoseconds);
 #if OPT_SYSCALLS
-int sys_open(const_userptr_t pathname, int flags, mode_t mode);
-int sys_close(int fd);
-ssize_t sys_write(int fd, const_userptr_t buf_ptr, size_t size);
-ssize_t sys_read(int fd, userptr_t buf_ptr, size_t size);
-void sys__exit(int code);
-pid_t sys_waitpid(pid_t pid, userptr_t returncode, int flags);
-pid_t sys_getpid(void);
-pid_t sys_fork(struct trapframe *tf);
+int sys_open(const_userptr_t pathname, int flags, mode_t mode, int *errp);
+int sys_close(int fd, int *errp);
+ssize_t sys_write(int fd, const_userptr_t buf_ptr, size_t size, int *errp);
+ssize_t sys_read(int fd, userptr_t buf_ptr, size_t size, int *errp);
+void sys__exit(int code, int *errp);
+pid_t sys_waitpid(pid_t pid, userptr_t returncode, int flags, int *errp);
+pid_t sys_getpid(int *errp);
+pid_t sys_fork(struct trapframe *tf, int *errp);
 #endif
 
 #endif /* _SYSCALL_H_ */

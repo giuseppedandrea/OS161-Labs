@@ -112,43 +112,35 @@ syscall(struct trapframe *tf)
 
 #if OPT_SYSCALLS
         case SYS_open:
-            retval = sys_open((const_userptr_t)tf->tf_a0, (int)tf->tf_a1, (mode_t)tf->tf_a2);
-            err = (retval < 0) ? -retval : 0;
+            retval = sys_open((const_userptr_t)tf->tf_a0, (int)tf->tf_a1, (mode_t)tf->tf_a2, &err);
             break;
 
         case SYS_close:
-            retval = sys_close((int)tf->tf_a0);
-            err = (retval < 0) ? -retval : 0;
+            retval = sys_close((int)tf->tf_a0, &err);
             break;
 
         case SYS_write:
-            retval = sys_write((int)tf->tf_a0, (const_userptr_t)tf->tf_a1, (size_t)tf->tf_a2);
-            err = (retval < 0) ? -retval : 0;
+            retval = sys_write((int)tf->tf_a0, (const_userptr_t)tf->tf_a1, (size_t)tf->tf_a2, &err);
             break;
 
         case SYS_read:
-            retval = sys_read((int)tf->tf_a0, (userptr_t)tf->tf_a1, (size_t)tf->tf_a2);
-            err = (retval < 0) ? -retval : 0;
+            retval = sys_read((int)tf->tf_a0, (userptr_t)tf->tf_a1, (size_t)tf->tf_a2, &err);
             break;
 
         case SYS__exit:
-            sys__exit((int)tf->tf_a0);
-            err = 0;
+            sys__exit((int)tf->tf_a0, &err);
             break;
 
         case SYS_waitpid:
-            retval = sys_waitpid((pid_t)tf->tf_a0, (userptr_t)tf->tf_a1, (int)tf->tf_a2);
-            err = (retval < 0) ? -retval : 0;
+            retval = sys_waitpid((pid_t)tf->tf_a0, (userptr_t)tf->tf_a1, (int)tf->tf_a2, &err);
             break;
 
         case SYS_getpid:
-            retval = sys_getpid();
-            err = (retval < 0) ? -retval : 0;
+            retval = sys_getpid(&err);
             break;
 
         case SYS_fork:
-            retval = sys_fork(tf);
-            err = (retval < 0) ? -retval : 0;
+            retval = sys_fork(tf, &err);
             break;
 #endif
 

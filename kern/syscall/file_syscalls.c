@@ -18,7 +18,7 @@ struct openfile system_filetable[SYSTEM_OPEN_MAX];
 #endif
 
 int
-sys_open(const_userptr_t pathname, int flags, mode_t mode)
+sys_open(const_userptr_t pathname, int flags, mode_t mode, int *errp)
 {
 #if OPT_FILE
     struct vnode *vn;
@@ -28,7 +28,8 @@ sys_open(const_userptr_t pathname, int flags, mode_t mode)
 
     result = vfs_open((char *)pathname, flags, mode, &vn);
     if (result != 0) {
-        return -result;
+        *errp = result;
+        return -1;
     }
 
     for (i = 0, of = NULL; i < SYSTEM_OPEN_MAX; i++) {
@@ -46,7 +47,8 @@ sys_open(const_userptr_t pathname, int flags, mode_t mode)
     }
     if (of == NULL) {
         vfs_close(vn);
-        return -ENFILE;
+        *errp = ENFILE;
+        return -1;
     }
 
     for (fd = STDERR_FILENO + 1; fd < OPEN_MAX; fd++) {
@@ -57,7 +59,8 @@ sys_open(const_userptr_t pathname, int flags, mode_t mode)
     }
     if (fd >= OPEN_MAX) {
         vfs_close(vn);
-        return -EMFILE;
+        *errp = EMFILE;
+        return -1;
     }
 
     return fd;
@@ -65,24 +68,27 @@ sys_open(const_userptr_t pathname, int flags, mode_t mode)
     (void)pathname;
     (void)flags;
     (void)mode;
-    return -ENOSYS;
+    *errp = ENOSYS;
+    return -1;
 #endif
 }
 
 int
-sys_close(int fd)
+sys_close(int fd, int *errp)
 {
 #if OPT_FILE
     struct openfile *of;
     struct vnode *vn;
 
     if ((fd < 0) || (fd >= OPEN_MAX)) {
-        return -EBADF;
+        *errp = EBADF;
+        return -1;
     }
 
     of = curproc->p_filetable[fd];
     if (of == NULL) {
-        return -EBADF;
+        *errp = EBADF;
+        return -1;
     }
 
     curproc->p_filetable[fd] = NULL;
@@ -100,22 +106,25 @@ sys_close(int fd)
     return 0;
 #else
     (void)fd;
-    return -ENOSYS;
+    *errp = ENOSYS;
+    return -1;
 #endif
 }
 
 ssize_t
-sys_write(int fd, const_userptr_t buf_ptr, size_t size)
+sys_write(int fd, const_userptr_t buf_ptr, size_t size, int *errp)
 {
     size_t i;
     const char *buf = (const char *)buf_ptr;
 
     if ((fd != STDOUT_FILENO) && (fd != STDERR_FILENO)) {
-        return -ENOSYS;
+        *errp = ENOSYS;
+        return -1;
     }
 
     if (buf == NULL) {
-        return -EFAULT;
+        *errp = EFAULT;
+        return -1;
     }
 
     for (i = 0; i < size; i++) {
@@ -126,17 +135,19 @@ sys_write(int fd, const_userptr_t buf_ptr, size_t size)
 }
 
 ssize_t
-sys_read(int fd, userptr_t buf_ptr, size_t size)
+sys_read(int fd, userptr_t buf_ptr, size_t size, int *errp)
 {
     size_t i;
     char *buf = (char *)buf_ptr;
 
     if (fd != STDIN_FILENO) {
-        return -ENOSYS;
+        *errp = ENOSYS;
+        return -1;
     }
 
     if (buf == NULL) {
-        return -EFAULT;
+        *errp = EFAULT;
+        return -1;
     }
 
     for (i = 0; i < size; i++) {
