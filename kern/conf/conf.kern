@@ -241,8 +241,8 @@
 # for them.
 #
 
-defdevice       beep			dev/generic/beep.c
-defdevice	con			dev/generic/console.c
+defdevice       beep                    dev/generic/beep.c
+defdevice       con                     dev/generic/console.c
 defdevice       rtclock                 dev/generic/rtclock.c
 defdevice       random                  dev/generic/random.c
 
@@ -345,19 +345,19 @@ defoption waitpid           # WaitPID
 # (you will probably want to add stuff here while doing the VM assignment)
 #
 
-file      vm/kmalloc.c
+file        vm/kmalloc.c
 
-optofffile dumbvm   vm/addrspace.c
+optofffile  dumbvm  vm/addrspace.c
 
-defoption dumbvm_free
+defoption   dumbvm_free
 
 #
 # Network
 # (nothing here yet)
 #
 
-defoption  net
-#optfile   net    net/net.c
+defoption   net
+#optfile    net     net/net.c
 
 #
 # VFS layer
@@ -383,9 +383,9 @@ file      vfs/devnull.c
 # calls assignment.)
 #
 
-file      syscall/loadelf.c
-file      syscall/runprogram.c
-file      syscall/time_syscalls.c
+file        syscall/loadelf.c
+file        syscall/runprogram.c
+file        syscall/time_syscalls.c
 
 defoption   syscalls
 optfile     syscalls    syscall/file_syscalls.c
@@ -397,11 +397,11 @@ defoption   fork            # Fork
 # Startup and initialization
 #
 
-file      main/main.c
-file      main/menu.c
+file        main/main.c
+file        main/menu.c
 
-defoption hello
-optfile   hello  main/hello.c
+defoption   hello
+optfile     hello   main/hello.c
 
 ########################################
 #                                      #
@@ -447,13 +447,13 @@ defoption netfs
 #                                      #
 ########################################
 
-file		test/arraytest.c
-file		test/bitmaptest.c
-file		test/threadlisttest.c
-file		test/threadtest.c
-file		test/tt3.c
-file		test/synchtest.c
-file		test/semunit.c
-file		test/kmalloctest.c
-file		test/fstest.c
-optfile net	test/nettest.c
+file        test/arraytest.c
+file        test/bitmaptest.c
+file        test/threadlisttest.c
+file        test/threadtest.c
+file        test/tt3.c
+file        test/synchtest.c
+file        test/semunit.c
+file        test/kmalloctest.c
+file        test/fstest.c
+optfile net test/nettest.c
