@@ -286,7 +286,6 @@ file      lib/uio.c
 
 defoption noasserts
 
-
 #
 # Standard C functions
 #
@@ -337,8 +336,6 @@ defoption cv                # Condition Variable
 #
 
 file      proc/proc.c
-
-defoption waitpid           # WaitPID
 
 #
 # Virtual memory system
@@ -391,7 +388,11 @@ defoption   syscalls
 optfile     syscalls    syscall/file_syscalls.c
 optfile     syscalls    syscall/proc_syscalls.c
 
-defoption   fork            # Fork
+defoption   waitpid         # Waitpid system call
+
+defoption   fork            # Fork system call
+
+defoption   file            # File support in system calls
 
 #
 # Startup and initialization
@@ -439,7 +440,6 @@ defoption netfs
 #
 # Note that "emufs" is completely contained in the "emu" device.
 #
-
 
 ########################################
 #                                      #
