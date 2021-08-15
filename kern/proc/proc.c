@@ -433,9 +433,9 @@ proc_setas(struct addrspace *newas)
 int
 proc_wait(struct proc *proc)
 {
+#if OPT_WAITPID
     KASSERT(proc != NULL);
 
-#if OPT_WAITPID
     P(proc->p_sem);
 
     int returncode = proc->p_returncode;
@@ -464,12 +464,12 @@ proc_by_pid(pid_t pid)
 void
 proc_filetable_copy(struct proc *srcp, struct proc *dstp)
 {
-    KASSERT(srcp != NULL);
-    KASSERT(dstp != NULL);
-
 #if OPT_FILE
     struct openfile *of;
     int fd;
+
+    KASSERT(srcp != NULL);
+    KASSERT(dstp != NULL);
 
     for (fd = 0; fd < OPEN_MAX; fd++) {
         of = srcp->p_filetable[fd];

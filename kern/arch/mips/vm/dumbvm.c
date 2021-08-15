@@ -90,7 +90,6 @@ isAllocTableActive()
 
     return active;
 }
-
 #endif
 
 void
@@ -195,7 +194,8 @@ getppages(unsigned long npages)
 
 static
 void
-freeppages(paddr_t paddr, unsigned long npages) {
+freeppages(paddr_t paddr, unsigned long npages)
+{
 #if OPT_DUMBVM_FREE
     size_t i, firstFrame;
 
