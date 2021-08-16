@@ -100,6 +100,14 @@ syscall(struct trapframe *tf)
 
 	retval = 0;
 
+	/*
+	 * Initialize err to 0. Since err is only set on error,
+	 * initialize it to 0 by default; thus it's not necessary to
+	 * deal with it for calls that successfully return.
+	 */
+
+	err = 0;
+
 	switch (callno) {
 	    case SYS_reboot:
 		err = sys_reboot(tf->tf_a0);

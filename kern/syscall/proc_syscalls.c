@@ -22,7 +22,7 @@ sys__exit(int code, int *errp)
 
     V(proc->p_sem);
 
-    *errp = 0;
+    (void)errp;
 
     thread_exit();
 #else
@@ -30,7 +30,7 @@ sys__exit(int code, int *errp)
 
     as_destroy(curproc->p_addrspace);
 
-    *errp = 0;
+    (void)errp;
 
     thread_exit();
 #endif
@@ -72,7 +72,7 @@ sys_getpid(int *errp)
 #if OPT_WAITPID
     KASSERT(curproc != NULL);
 
-    *errp = 0;
+    (void)errp;
 
     return curproc->p_pid;
 #else
