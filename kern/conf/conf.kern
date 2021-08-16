@@ -376,8 +376,6 @@ file      vfs/devnull.c
 
 #
 # System call layer
-# (You will probably want to add stuff here while doing the basic system
-# calls assignment.)
 #
 
 file        syscall/loadelf.c
@@ -393,6 +391,8 @@ defoption   waitpid         # Waitpid system call
 defoption   fork            # Fork system call
 
 defoption   file            # File support in system calls
+
+defoption   argv            # argv support
 
 #
 # Startup and initialization
