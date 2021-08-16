@@ -3,6 +3,9 @@
 #include <kern/fcntl.h>
 #include <kern/unistd.h>
 #include <lib.h>
+#include <uio.h>
+#include <vnode.h>
+#include <copyinout.h>
 #include <proc.h>
 #include <current.h>
 #include <vfs.h>
@@ -111,20 +114,79 @@ sys_close(int fd, int *errp)
 #endif
 }
 
+#if OPT_FILE
+static
+ssize_t
+file_read(int fd, userptr_t buf_ptr, size_t size, int *errp)
+{
+    struct openfile *of;
+    struct vnode *vn;
+    char *kbuf;
+    struct iovec iov;
+    struct uio ku;
+    int result;
+    ssize_t nread;
+
+    of = curproc->p_filetable[fd];
+    if (of == NULL) {
+        *errp = EBADF;
+        return -1;
+    }
+
+    vn = of->vn;
+    if (vn == NULL) {
+        *errp = EBADF;
+        return -1;
+    }
+
+    kbuf = kmalloc(size * sizeof(char));
+    if (kbuf == NULL) {
+        *errp = ENOMEM;
+        return -1;
+    }
+
+    uio_kinit(&iov, &ku, kbuf, sizeof(kbuf), of->offset, UIO_READ);
+    result = VOP_READ(of->vn, &ku);
+    if (result != 0) {
+        *errp = result;
+        return -1;
+    }
+
+    of->offset = ku.uio_offset;
+
+    nread = size - ku.uio_resid;
+
+    copyout(kbuf, buf_ptr, nread);
+
+    kfree(kbuf);
+
+    return nread;
+}
+#endif
+
 ssize_t
 sys_read(int fd, userptr_t buf_ptr, size_t size, int *errp)
 {
     size_t i;
     char *buf = (char *)buf_ptr;
 
-    if (fd != STDIN_FILENO) {
-        *errp = ENOSYS;
+    if ((fd < 0) || (fd >= OPEN_MAX)) {
+        *errp = EBADF;
         return -1;
     }
 
     if (buf == NULL) {
         *errp = EFAULT;
         return -1;
+    }
+
+    if (fd != STDIN_FILENO) {
+#if OPT_FILE
+        return file_read(fd, buf_ptr, size, errp);
+#else
+        *errp = ENOSYS;
+        return -1;
+#endif
     }
 
     for (i = 0; i < size; i++) {
@@ -137,20 +199,79 @@ sys_read(int fd, userptr_t buf_ptr, size_t size, int *errp)
     return (ssize_t)size;
 }
 
+#if OPT_FILE
+static
+ssize_t
+file_write(int fd, const_userptr_t buf_ptr, size_t size, int *errp)
+{
+    struct openfile *of;
+    struct vnode *vn;
+    char *kbuf;
+    struct iovec iov;
+    struct uio ku;
+    int result;
+    ssize_t nwrite;
+
+    of = curproc->p_filetable[fd];
+    if (of == NULL) {
+        *errp = EBADF;
+        return -1;
+    }
+
+    vn = of->vn;
+    if (vn == NULL) {
+        *errp = EBADF;
+        return -1;
+    }
+
+    kbuf = kmalloc(size * sizeof(char));
+    if (kbuf == NULL) {
+        *errp = ENOMEM;
+        return -1;
+    }
+
+    copyin(buf_ptr, kbuf, size);
+
+    uio_kinit(&iov, &ku, kbuf, sizeof(kbuf), of->offset, UIO_WRITE);
+    result = VOP_WRITE(of->vn, &ku);
+    if (result != 0) {
+        *errp = result;
+        return -1;
+    }
+
+    kfree(kbuf);
+
+    of->offset = ku.uio_offset;
+
+    nwrite = size - ku.uio_resid;
+
+    return nwrite;
+}
+#endif
+
 ssize_t
 sys_write(int fd, const_userptr_t buf_ptr, size_t size, int *errp)
 {
     size_t i;
     const char *buf = (const char *)buf_ptr;
 
-    if ((fd != STDOUT_FILENO) && (fd != STDERR_FILENO)) {
-        *errp = ENOSYS;
+    if ((fd < 0) || (fd >= OPEN_MAX)) {
+        *errp = EBADF;
         return -1;
     }
 
     if (buf == NULL) {
         *errp = EFAULT;
         return -1;
+    }
+
+    if ((fd != STDOUT_FILENO) && (fd != STDERR_FILENO)) {
+#if OPT_FILE
+        return file_write(fd, buf_ptr, size, errp);
+#else
+        *errp = ENOSYS;
+        return -1;
+#endif
     }
 
     for (i = 0; i < size; i++) {
