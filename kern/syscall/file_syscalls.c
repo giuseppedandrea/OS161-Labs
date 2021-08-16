@@ -145,7 +145,7 @@ file_read(int fd, userptr_t buf_ptr, size_t size, int *errp)
         return -1;
     }
 
-    uio_kinit(&iov, &ku, kbuf, sizeof(kbuf), of->offset, UIO_READ);
+    uio_kinit(&iov, &ku, kbuf, size, of->offset, UIO_READ);
     result = VOP_READ(of->vn, &ku);
     if (result != 0) {
         *errp = result;
@@ -232,7 +232,7 @@ file_write(int fd, const_userptr_t buf_ptr, size_t size, int *errp)
 
     copyin(buf_ptr, kbuf, size);
 
-    uio_kinit(&iov, &ku, kbuf, sizeof(kbuf), of->offset, UIO_WRITE);
+    uio_kinit(&iov, &ku, kbuf, size, of->offset, UIO_WRITE);
     result = VOP_WRITE(of->vn, &ku);
     if (result != 0) {
         *errp = result;
